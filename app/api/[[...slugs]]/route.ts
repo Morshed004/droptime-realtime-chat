@@ -1,12 +1,13 @@
 import { Elysia, t } from "elysia";
 
-const app = new Elysia({ prefix: "/api" })
-  .get("/user", "Hello Nextjs")
-  .post("/", ({ body }) => body, {
-    body: t.Object({
-      name: t.String(),
-    }),
-  });
+// Room Route
+
+const room = new Elysia({ prefix: "/room" }).post("/create", () => {
+  console.log("Room Created");
+});
+
+// Main app route
+const app = new Elysia({ prefix: "/api" }).use(room);
 
 export type App = typeof app;
 export const GET = app.fetch;

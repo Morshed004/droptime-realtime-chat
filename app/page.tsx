@@ -1,5 +1,7 @@
 "use client";
+import { api } from '@/lib/eden';
 import generateUsername from '@/utils/generate-username';
+import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, MessageCircle, User } from 'lucide-react';
 import React, { ChangeEvent, useEffect, useState } from 'react';
 
@@ -19,6 +21,12 @@ const App: React.FC = () => {
     setUsername(username)
 
   },[])
+
+  const {mutate: createRoom} = useMutation({
+    mutationFn: async ()=>{
+      await api.room.create.post()
+    }
+  })
 
   const handleCreateRoom = (e: React.SubmitEvent<HTMLFormElement>): void => {
     e.preventDefault();
@@ -81,6 +89,9 @@ const App: React.FC = () => {
             {/* Action Buttons */}
             <div className="flex flex-col gap-3 pt-2">
               <button
+              onClick={()=>{
+                createRoom()
+              }}
                 type="submit"
                 className="group relative w-full bg-[#FFB84C] border-2 border-black rounded-xl py-4 px-6 font-black uppercase tracking-wider flex items-center justify-center gap-3 transition-all hover:translate-x-0.5 hover:translate-y-0.5 active:translate-x-0 active:translate-y-0 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none"
               >
