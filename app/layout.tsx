@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Roboto_Condensed } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/components/react-query-provider";
+import { Providers } from "@/components/realtime-provider";
 
 const robotoCondensed = Roboto_Condensed({
   subsets: ["latin"],
@@ -24,8 +25,10 @@ export default function RootLayout({
       className={`${robotoCondensed.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <QueryProvider>{children}</QueryProvider>
-        </body>
+        <Providers>
+          <QueryProvider>{children}</QueryProvider>
+        </Providers>
+      </body>
     </html>
   );
 }
