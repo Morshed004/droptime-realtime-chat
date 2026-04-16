@@ -19,18 +19,23 @@ export const authMiddleware = new Elysia({
       return { error: "Unauthorzied" };
     }
   })
-  .derive({ as: "scoped" }, async ({cookie, query}) => {
+  .derive({ as: "scoped" }, async ({ cookie, query }) => {
     const roomId = query.roomId;
-    const token = cookie["x-auth-token"].value as string | undefined;
+    // Safe access to cookie value
+    const token = cookie["x-auth-token"]?.value as string | undefined;
 
-    if(!roomId || !token){
-        throw new AuthError("Missing Room ID or Token")
+    if (!roomId || !token) {
+      throw new AuthError("Missing Room ID or Token");
     }
 
-    const isConnected = await redis.hget<string[]>(`room:${roomId}`, "connected")
-    if(!isConnected?.includes(token)){
-        throw new AuthError("Invalid token")
+    const roomMeta = await redis.hgetall<{
+      connected: string[];
+      createdAt: number;
+    }>(`room:${roomId}`);
+
+    if (!roomMeta || !roomMeta.connected.includes(token)) {
+      throw new AuthError("Invalid token or room");
     }
 
-    return {auth: {token, isConnected, roomId}}
+    return { auth: { token, isConnected: true, roomId } };
   });

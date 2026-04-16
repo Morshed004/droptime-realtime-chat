@@ -1,15 +1,20 @@
 "use client";
+import { useUsername } from "@/hooks/useUsername";
+import { api } from "@/lib/eden";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Clock,
   Copy,
   Hash,
+  Loader2,
   MessageCircle,
+  MessageSquareDashed,
   Send,
   Trash2,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 function formatRemainingTime(seconds: number) {
   const mins = seconds / 60;
@@ -22,8 +27,52 @@ const ChatRoom: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(120);
-  const { roomId } = useParams();
+  const params = useParams();
+  const roomId = params.roomId as string;
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { username } = useUsername();
+
+  const queryClient = useQueryClient();
+
+  const { mutate: sendMessage, isPending } = useMutation({
+    mutationFn: async (msg: string) => {
+      if (!msg.trim()) return;
+      await api.message.post(
+        {
+          sender: username,
+          msg,
+        },
+        { query: { roomId } },
+      );
+    },
+    onSuccess: () => {
+      setMessage("");
+      queryClient.invalidateQueries({ queryKey: ["message", roomId] });
+      // Small timeout to allow the DOM to update before scrolling
+      setTimeout(() => {
+        scrollToBottom();
+        inputRef.current?.focus();
+      }, 100);
+    },
+  });
+
+  const { data: messages, isLoading } = useQuery({
+    queryKey: ["message", roomId],
+    queryFn: async ()=>{
+      const res = await api.message.get({query: {roomId}})
+      return res.data
+    }
+  })
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages?.message]);
 
   const handleCopy = () => {
     const url = window.location.href;
@@ -86,35 +135,66 @@ const ChatRoom: React.FC = () => {
         </div>
 
         {/* MESSAGE PREVIEW AREA */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F0E6D2]/40">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F0E6D2]/40 scroll-smooth custom-scrollbar">
           <div className="flex justify-center mb-4">
             <span className="bg-black/5 border-2 border-black/10 text-[10px] font-black uppercase px-4 py-1 rounded-full">
               Transmission Started
             </span>
           </div>
 
-          {/* Incoming Message */}
-          <div className="flex items-start gap-3">
-            <div className="space-y-2 max-w-[80%]">
-              <div className="bg-white border-2 border-black p-4 rounded-3xl rounded-tl-none font-bold text-sm shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
-                Welcome to the temporary room. All messages will be destroyed
-                once the timer hits zero.
-              </div>
-              <span className="text-[9px] font-black text-black/30 uppercase ml-1">
-                Commander Felix • 10:55 AM
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-full gap-4 opacity-50">
+              <Loader2 className="animate-spin" size={32} />
+              <span className="text-[10px] font-black uppercase tracking-widest">
+                Decrypting frequency...
               </span>
             </div>
-          </div>
-
-          {/* Outgoing Message */}
-          <div className="flex flex-col items-end gap-2 ml-auto max-w-[80%]">
-            <div className="bg-[#FFB84C] border-2 border-black p-4 rounded-3xl rounded-tr-none font-bold text-sm shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]">
-              Understood. Protocol initialized.
+          ) : !messages?.message || messages.message.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[60%] text-center px-8">
+              <div className="w-16 h-16 bg-black/5 rounded-full flex items-center justify-center mb-4 border-2 border-dashed border-black/20">
+                <MessageSquareDashed size={32} className="text-black/20" />
+              </div>
+              <h3 className="font-black text-lg uppercase tracking-tight mb-2">
+                Silence on the Wire
+              </h3>
+              <p className="text-xs font-bold text-black/40 max-w-60 leading-relaxed">
+                The frequency is clear. Be the first to broadcast a secure
+                transmission in this room.
+              </p>
             </div>
-            <span className="text-[9px] font-black text-black/30 uppercase mr-1">
-              Read 10:56 AM
-            </span>
-          </div>
+          ) : (
+            messages.message.map((msg, index) => {
+              const isOwnMessage = !!msg.token;
+              const date = new Date(msg.timeStamp);
+              const timeString = date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+
+              return (
+                <div
+                  key={msg.id || index}
+                  className={`flex flex-col ${isOwnMessage ? "items-end ml-auto" : "items-start"} max-w-[80%] gap-2`}
+                >
+                  <div
+                    className={`${
+                      isOwnMessage
+                        ? "bg-[#FFB84C] rounded-tr-none"
+                        : "bg-white rounded-tl-none"
+                    } border-2 border-black p-4 rounded-3xl font-bold text-sm shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] wrap-break-word w-full`}
+                  >
+                    {msg.msg}
+                  </div>
+                  <span className="text-[9px] font-black text-black/30 uppercase px-1">
+                    {!isOwnMessage && `${msg.sender} • `}
+                    {timeString}
+                    {isOwnMessage && " • Sent"}
+                  </span>
+                </div>
+              );
+            })
+          )}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* MESSAGE INPUT */}
@@ -126,25 +206,32 @@ const ChatRoom: React.FC = () => {
               </div>
             </div>
             <input
+              ref={inputRef}
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={(e)=>{
-                if(e.key ==="Enter" && message.trim()){
-                    inputRef.current?.focus()
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && message.trim() && !isPending) {
+                  sendMessage(message);
                 }
-
               }}
               placeholder="Enter encrypted message..."
               className="flex-1 bg-transparent px-3 font-bold text-sm outline-none placeholder:text-black/30"
             />
-            <button 
-            className="bg-black text-[#FFB84C] px-5 py-3 cursor-pointer rounded-2xl hover:bg-black/90 active:scale-95 transition-all flex items-center gap-2 font-black uppercase text-xs tracking-widest shadow-[3px_3px_0px_0px_rgba(60,60,60,1)]"
-            onClick={()=>{
-                inputRef.current?.focus()
-            }}
+            <button
+              className="bg-black text-[#FFB84C] px-5 py-3 cursor-pointer rounded-2xl hover:bg-black/90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 font-black uppercase text-xs tracking-widest shadow-[3px_3px_0px_0px_rgba(60,60,60,1)]"
+              disabled={!message.trim() || isPending}
+              onClick={() => {
+                sendMessage(message);
+              }}
             >
-              Send <Send size={16} />
+              {isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <>
+                  Send <Send size={16} />
+                </>
+              )}
             </button>
           </div>
         </div>

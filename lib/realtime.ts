@@ -1,6 +1,6 @@
 import { Realtime, InferRealtimeEvents } from "@upstash/realtime";
 import { redis } from "./redis";
-import z from "zod/v4";
+import { z } from "zod";
 
 const messageSchema = z.object({
   id: z.string(),
