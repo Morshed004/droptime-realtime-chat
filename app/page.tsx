@@ -1,30 +1,22 @@
 "use client";
+import { useUsername } from '@/hooks/useUsername';
 import { api } from '@/lib/eden';
-import generateUsername from '@/utils/generate-username';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, MessageCircle, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import React, { ChangeEvent, useEffect, useState } from 'react';
 
 const App: React.FC = () => {
-  const [username, setUsername] = useState<string>('');
+  const router = useRouter()
+  const {username} = useUsername()
 
-  useEffect(()=>{
-    const stored = localStorage.getItem(process.env.STROAGE_KEY!);
-
-    if(stored){
-      setUsername(stored)
-      return
-    }
-
-    const username = generateUsername()
-    localStorage.setItem(process.env.STROAGE_KEY!, username);
-    setUsername(username)
-
-  },[])
-
-  const {mutate: createRoom} = useMutation({
+  const {mutate: createRoom, isPending} = useMutation({
     mutationFn: async ()=>{
-      await api.room.create.post()
+      const res = await api.room.create.post();
+
+      if(res.status === 200){
+        router.push(`/room/${res.data?.roomId}`)
+      }
     }
   })
 
@@ -33,11 +25,6 @@ const App: React.FC = () => {
     if (!username.trim()) return;
     console.log("Creating room for:", username);
   };
-
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>): void => {
-    setUsername(e.target.value);
-  };
-
   return (
     <div className="min-h-screen bg-[#F0E6D2] flex flex-col items-center justify-center p-6 font-sans text-[#1A1A1A]">
 
@@ -79,9 +66,8 @@ const App: React.FC = () => {
                   type="text"
                   value={username}
                   disabled
-                  onChange={handleInputChange}
                   placeholder="Enter alias..."
-                  className="w-full bg-[#F0E6D2] border-2 border-black rounded-xl py-4 px-5 text-lg font-bold placeholder:text-[#A89D88] outline-none focus:ring-2 focus:ring-black/5 transition-all shadow-[inset_2px_2px_4px_rgba(0,0,0,0.1)]"
+                  className="w-full bg-[#F0E6D2] border-2 cursor-not-allowed border-black rounded-xl py-4 px-5 text-lg font-bold placeholder:text-[#A89D88] outline-none focus:ring-2 focus:ring-black/5 transition-all shadow-[inset_2px_2px_4px_rgba(0,0,0,0.1)]"
                 />
               </div>
             </div>
@@ -92,8 +78,9 @@ const App: React.FC = () => {
               onClick={()=>{
                 createRoom()
               }}
+              disabled= {isPending}
                 type="submit"
-                className="group relative w-full bg-[#FFB84C] border-2 border-black rounded-xl py-4 px-6 font-black uppercase tracking-wider flex items-center justify-center gap-3 transition-all hover:translate-x-0.5 hover:translate-y-0.5 active:translate-x-0 active:translate-y-0 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none"
+                className="group relative w-full bg-[#FFB84C] border-2 border-black cursor-pointer rounded-xl py-4 px-6 font-black uppercase tracking-wider flex items-center justify-center gap-3 transition-all hover:translate-x-0.5 hover:translate-y-0.5 active:translate-x-0 active:translate-y-0 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:shadow-none"
               >
                 Create New Room
                 <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
