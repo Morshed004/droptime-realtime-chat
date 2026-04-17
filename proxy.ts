@@ -15,7 +15,7 @@ export const proxy = async (req: NextRequest) => {
     createdAt: number;
   }>(`room:${roomId}`);
 
-  if (!roomMeta) return NextResponse.redirect(new URL("/", req.url));
+  if (!roomMeta) return NextResponse.redirect(new URL("/?error=invaild-room", req.url));
 
   const isTokenExist = req.cookies.get("x-auth-token")?.value;
   // ALLOW USER TO JOIN THE ROOM
@@ -25,7 +25,7 @@ export const proxy = async (req: NextRequest) => {
 
   // DO NOT ALLOW USER TO JOIN THE ROOM
   if (roomMeta.connected.length >= 2) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/?error=room-full", req.url));
   }
 
   const response = NextResponse.next();

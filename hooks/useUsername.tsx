@@ -1,7 +1,6 @@
 "use client";
 
 import { nanoid } from "nanoid";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const ANIMALS: string[] = [
@@ -29,7 +28,7 @@ const ANIMALS: string[] = [
 
 function generateUsername() {
   const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
-  const username = `nexus-${animal}-${nanoid(5)}`;
+  const username = `droptime-${animal}-${nanoid(5)}`;
   return username;
 }
 

@@ -1,5 +1,4 @@
 import { redis } from "@/lib/redis";
-import { error } from "console";
 import Elysia from "elysia";
 
 class AuthError extends Error {
@@ -22,16 +21,13 @@ export const authMiddleware = new Elysia({
   .derive({ as: "scoped" }, async ({cookie, query}) => {
     const roomId = query.roomId;
     const token = cookie["x-auth-token"].value as string | undefined;
-    console.log(token)
 
     if(!roomId || !token){
-        console.log("missing room id and token")
         throw new AuthError("Missing Room ID or Token")
     }
 
     const isConnected = await redis.hget<string[]>(`room:${roomId}`, "connected")
     if(!isConnected?.includes(token)){
-        console.log("wrong token")
         throw new AuthError("Invalid token")
     }
 

@@ -92,7 +92,6 @@ const ChatRoom: React.FC = () => {
   const { mutate: destroyRoom } = useMutation({
     mutationFn: async () => {
       await api.room.delete(null, { query: { roomId } });
-      router.push("/");
     },
   });
 
@@ -102,6 +101,10 @@ const ChatRoom: React.FC = () => {
     onData: ({ event }) => {
       if (event === "chat.message") {
         refetch();
+      }
+
+      if(event === "chat.destroy"){
+        router.push("/?destroy=true")
       }
     },
   });

@@ -2,13 +2,47 @@
 import { useUsername } from '@/hooks/useUsername';
 import { api } from '@/lib/eden';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowRight, MessageCircle, User } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, ArrowRight, MessageCircle, User } from 'lucide-react';
 
 const App: React.FC = () => {
   const router = useRouter()
   const {username} = useUsername()
+
+  const searchParams = useSearchParams()
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    const error = searchParams.get("error")
+    const destroyed = searchParams.get("destroy") || searchParams.get("destroyed") || searchParams.get("result") === "destroyed"
+
+    if (error) {
+      if (error === "room-full") {
+        setErrorMsg("Transmission Denied: Room is currently at maximum capacity.")
+      } else if (error === "invaild-room") {
+        setErrorMsg("Signal Lost: The requested room is invalid or has expired.")
+      } else {
+        setErrorMsg("Error: Unable to establish a connection to the room.")
+      }
+    } else if (destroyed) {
+      setErrorMsg("Connection Terminated: This room has been destroyed.")
+    }
+
+    if (error || destroyed) {
+      const timer = setTimeout(() => {
+        setErrorMsg(null)
+        // Clear the URL params
+        const url = new URL(window.location.href)
+        url.searchParams.delete("error")
+        url.searchParams.delete("destroy")
+        url.searchParams.delete("destroyed")
+        url.searchParams.delete("result")
+        window.history.replaceState({}, "", url.toString())
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams])
 
   const {mutate: createRoom, isPending} = useMutation({
     mutationFn: async ()=>{
@@ -23,7 +57,6 @@ const App: React.FC = () => {
   const handleCreateRoom = (e: React.SubmitEvent<HTMLFormElement>): void => {
     e.preventDefault();
     if (!username.trim()) return;
-    console.log("Creating room for:", username);
   };
   return (
     <div className="min-h-screen bg-[#F0E6D2] flex flex-col items-center justify-center p-6 font-sans text-[#1A1A1A]">
@@ -35,9 +68,21 @@ const App: React.FC = () => {
             <MessageCircle size={24} />
           </div>
           <div>
-            <h1 className="text-2xl font-black uppercase tracking-tight leading-none">Nexus Chat</h1>
+            <h1 className="text-2xl font-black uppercase tracking-tight leading-none">DropTime Chat</h1>
           </div>
         </div>
+
+        {/* Error Notification */}
+        {errorMsg && (
+          <div className="mb-6 bg-[#FF6B6B] border-[3px] border-black p-4 rounded-2xl shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] flex items-center gap-4 animate-in fade-in slide-in-from-top-5 duration-300">
+            <div className="bg-black text-[#FF6B6B] p-2 rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(255,107,107,0.4)] shrink-0">
+              <AlertTriangle size={20} strokeWidth={3} />
+            </div>
+            <p className="font-black uppercase text-xs tracking-tight leading-tight">
+              {errorMsg}
+            </p>
+          </div>
+        )}
 
         {/* Main Card */}
         <div className="bg-[#E2D4BA] border-[3px] border-black rounded-2xl p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] overflow-hidden relative">

@@ -57,7 +57,6 @@ const message = new Elysia({ prefix: "/message" })
       const isRoomExist = await redis.exists(`room:${roomId}`);
 
       if (!isRoomExist) {
-        console.log("room not exist");
         throw new Error("Room does not exist");
       }
 
