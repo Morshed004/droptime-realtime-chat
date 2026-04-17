@@ -210,7 +210,7 @@ const ChatRoom: React.FC = () => {
               </p>
             </div>
           ) : (
-            messages.message.map((msg, index) => {
+            messages.message.map((msg) => {
               const isOwnMessage = !!msg.token;
               const date = new Date(msg.timeStamp);
               const timeString = date.toLocaleTimeString([], {
@@ -220,7 +220,7 @@ const ChatRoom: React.FC = () => {
 
               return (
                 <div
-                  key={msg.id || index}
+                  key={msg.id}
                   className={`flex flex-col ${isOwnMessage ? "items-end ml-auto" : "items-start"} max-w-[80%] gap-2`}
                 >
                   <div
@@ -228,7 +228,9 @@ const ChatRoom: React.FC = () => {
                       isOwnMessage
                         ? "bg-[#FFB84C] rounded-tr-none"
                         : "bg-white rounded-tl-none"
-                    } border-2 border-black p-4 rounded-3xl font-bold text-sm shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] wrap-break-word w-full`}
+                    } border-2 border-black p-4 rounded-3xl font-bold text-sm 
+                      shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] 
+                      wrap-break-word w-fit max-w-100 min-w-20`}
                   >
                     {msg.msg}
                   </div>
@@ -260,6 +262,7 @@ const ChatRoom: React.FC = () => {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && message.trim() && !isPending) {
                   sendMessage(message);
+                  setMessage("");
                 }
               }}
               placeholder="Enter encrypted message..."
@@ -270,6 +273,7 @@ const ChatRoom: React.FC = () => {
               disabled={!message.trim() || isPending}
               onClick={() => {
                 sendMessage(message);
+                setMessage("");
               }}
             >
               {isPending ? (
