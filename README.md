@@ -2,7 +2,6 @@
 
 A cutting-edge, **Neo-brutalist** realtime chat application built with **Next.js 16**, **ElysiaJS**, and **Upstash**. Designed for privacy and speed, DropTime Chat features ephemeral, 2-participant rooms that self-destruct after 20 minutes.
 
-![Project Preview](https://github.com/user-attachments/assets/placeholder) <!-- Replace with actual screenshot if available -->
 
 ## ✨ Features
 
@@ -27,7 +26,7 @@ A cutting-edge, **Neo-brutalist** realtime chat application built with **Next.js
 
 ### 1. Clone the repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/Morshed004/droptime-realtime-chat.git
 cd realtime-chat
 ```
 
