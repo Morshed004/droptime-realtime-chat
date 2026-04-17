@@ -1,7 +1,8 @@
 "use client";
 import { useUsername } from "@/hooks/useUsername";
 import { api } from "@/lib/eden";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRealtime } from "@/lib/realtime-client";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Clock,
@@ -13,26 +14,25 @@ import {
   Send,
   Trash2,
 } from "lucide-react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 
 function formatRemainingTime(seconds: number) {
-  const mins = seconds / 60;
+  const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
 
-  return `${mins} : ${secs.toString().padStart(2, "0")}`;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
 const ChatRoom: React.FC = () => {
   const [message, setMessage] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(120);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const params = useParams();
   const roomId = params.roomId as string;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { username } = useUsername();
-
-  const queryClient = useQueryClient();
+  const router = useRouter();
 
   const { mutate: sendMessage, isPending } = useMutation({
     mutationFn: async (msg: string) => {
@@ -45,24 +45,66 @@ const ChatRoom: React.FC = () => {
         { query: { roomId } },
       );
     },
-    onSuccess: () => {
-      setMessage("");
-      queryClient.invalidateQueries({ queryKey: ["message", roomId] });
-      // Small timeout to allow the DOM to update before scrolling
-      setTimeout(() => {
-        scrollToBottom();
-        inputRef.current?.focus();
-      }, 100);
+  });
+
+  const {
+    data: messages,
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["message", roomId],
+    queryFn: async () => {
+      const res = await api.message.get({ query: { roomId } });
+      return res.data;
     },
   });
 
-  const { data: messages, isLoading } = useQuery({
-    queryKey: ["message", roomId],
-    queryFn: async ()=>{
-      const res = await api.message.get({query: {roomId}})
-      return res.data
+  const { data: ttlData } = useQuery({
+    queryKey: ["ttl", roomId],
+    queryFn: async () => {
+      const res = await api.room.ttl.get({ query: { roomId } });
+      return res.data;
+    },
+  });
+
+  useEffect(() => {
+    if (ttlData?.ttl !== undefined && timeRemaining === null) {
+      setTimeRemaining(ttlData.ttl);
     }
-  })
+  }, [ttlData, timeRemaining]);
+
+  useEffect(() => {
+    if (timeRemaining === null) return;
+
+    const interval = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timeRemaining, router]);
+
+  const { mutate: destroyRoom } = useMutation({
+    mutationFn: async () => {
+      await api.room.delete(null, { query: { roomId } });
+      router.push("/");
+    },
+  });
+
+  useRealtime({
+    channels: [roomId],
+    events: ["chat.message", "chat.destroy"],
+    onData: ({ event }) => {
+      if (event === "chat.message") {
+        refetch();
+      }
+    },
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -126,7 +168,12 @@ const ChatRoom: React.FC = () => {
                 </button>
               </div>
 
-              <button className="flex items-center gap-2 cursor-pointer bg-[#FF6B6B] border-2 border-black rounded-xl px-4 py-3 font-black uppercase text-xs shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-none transition-all">
+              <button
+                onClick={() => {
+                  destroyRoom();
+                }}
+                className="flex items-center gap-2 cursor-pointer bg-[#FF6B6B] border-2 border-black rounded-xl px-4 py-3 font-black uppercase text-xs shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-y-0 active:shadow-none transition-all"
+              >
                 <Trash2 size={16} />
                 Destroy
               </button>

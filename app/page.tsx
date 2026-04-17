@@ -4,7 +4,7 @@ import { api } from '@/lib/eden';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, MessageCircle, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { ChangeEvent, useEffect, useState } from 'react';
+import React from 'react';
 
 const App: React.FC = () => {
   const router = useRouter()

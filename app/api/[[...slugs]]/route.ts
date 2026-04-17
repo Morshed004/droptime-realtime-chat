@@ -7,19 +7,43 @@ import { authMiddleware } from "./auth";
 
 // Room Route
 
-const room = new Elysia({ prefix: "/room" }).post("/create", async () => {
-  const roomId = nanoid();
-  const ROOM_EXPIRE = 60 * 20;
+const room = new Elysia({ prefix: "/room" })
+  .post("/create", async () => {
+    const roomId = nanoid();
+    const ROOM_EXPIRE = 60 * 20;
 
-  await redis.hset(`room:${roomId}`, {
-    connected: [],
-    createdAt: Date.now(),
-  });
+    await redis.hset(`room:${roomId}`, {
+      connected: [],
+      createdAt: Date.now(),
+    });
 
-  await redis.expire(`room:${roomId}`, ROOM_EXPIRE);
+    await redis.expire(`room:${roomId}`, ROOM_EXPIRE);
 
-  return { roomId };
-});
+    return { roomId };
+  })
+  .use(authMiddleware)
+  .get(
+    "/ttl",
+    async ({ auth }) => {
+      const ttl = await redis.ttl(`room:${auth.roomId}`);
+      return { ttl: ttl > 0 ? ttl : 0 };
+    },
+    { query: z.object({ roomId: z.string() }) },
+  )
+  .delete(
+    "/",
+    async ({ auth }) => {
+      await realtime
+        .channel(auth.roomId)
+        .emit("chat.destroy", { isDestroyed: true });
+      await Promise.all([
+        redis.del(auth.roomId),
+        redis.del(`room:${auth.roomId}`),
+        redis.del(`message:${auth.roomId}`),
+      ]);
+    },
+    { query: z.object({ roomId: z.string() }) },
+  );
 
 // Message Route
 const message = new Elysia({ prefix: "/message" })
@@ -33,7 +57,7 @@ const message = new Elysia({ prefix: "/message" })
       const isRoomExist = await redis.exists(`room:${roomId}`);
 
       if (!isRoomExist) {
-        console.log("room not exist")
+        console.log("room not exist");
         throw new Error("Room does not exist");
       }
 
@@ -53,8 +77,10 @@ const message = new Elysia({ prefix: "/message" })
       await realtime.channel(roomId).emit("chat.message", message);
 
       const timeRemaining = await redis.ttl(`room:${roomId}`);
-      await redis.expire(`message:${roomId}`, timeRemaining);
-      await redis.expire(roomId, timeRemaining);
+      await Promise.all([
+        redis.expire(`message:${roomId}`, timeRemaining),
+        redis.expire(roomId, timeRemaining),
+      ]);
     },
     {
       query: z.object({ roomId: z.string() }),
@@ -63,7 +89,8 @@ const message = new Elysia({ prefix: "/message" })
         msg: z.string().max(1000),
       }),
     },
-  ).get(
+  )
+  .get(
     "/",
     async ({ auth }) => {
       const message = await redis.lrange<Message>(
@@ -80,8 +107,7 @@ const message = new Elysia({ prefix: "/message" })
       };
     },
     { query: z.object({ roomId: z.string() }) },
-  )
-  
+  );
 
 // Main app route
 const app = new Elysia({ prefix: "/api" }).use(room).use(message);
@@ -89,3 +115,4 @@ const app = new Elysia({ prefix: "/api" }).use(room).use(message);
 export type App = typeof app;
 export const GET = app.fetch;
 export const POST = app.fetch;
+export const DELETE = app.fetch;
